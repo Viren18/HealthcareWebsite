@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href={{ url_for ('static', filename = 'style.css')}}>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  </head>
+  <body style="background-color: #CCCCFF;">
+    
+      
+      
+      <form style="background-color: #92A1CF;margin: 0 auto;margin-left: 1%;margin-right: 1%">
+          
+  <span>
+    <h1>Health-Bot
+        <img src={{ url_for ('static', filename = 'healthcare.jpg')}} alt="health" style="vertical-align:middle;margin:3% 0px;width:80px;height:70px;"></h1>
+    </span>
+    <div>
+      <div id="chatbox">
+        <p class="botText" ><span>Hi! I'm Health Care assistant.what is your name ?</span></p>
+      </div>
+      <div id="userInput">
+
+        <textarea id="textInput" class="input" placeholder="Press Enter to Send Message" name="msg" rows="1" data-min-rows='1'></textarea>
+          <button type="button" id="textInput" class="btn btn-danger" id="btn" onClick=getBotResponse() style="background-color: cadetblue; color: white;" >Send</button>
+        
+      </div>
+      <script>
+        function getBotResponse() {
+          var rawText = $("#textInput").val();
+          var userHtml = '<p class="userText"><span>' + rawText + '</span></p>';
+          $("#textInput").val("");
+          $("#chatbox").append(userHtml);
+          document.getElementById('userInput').scrollIntoView({block: 'start', behavior: 'smooth'});
+          $.get("/get", { msg: rawText }).done(function(data) {
+            var botHtml = '<p class="botText"><span>' + data + '</span></p>';
+            $("#chatbox").append(botHtml);
+            document.getElementById('userInput').scrollIntoView({block: 'start', behavior: 'smooth'});
+              document.getElementById('btn').scrollIntoView({block: 'start', behavior: 'smooth'});
+          });
+        }
+        $("#textInput").keypress(function(e) {
+            if ((e.which == 13) && document.getElementById("textInput").value != "" ){
+                getBotResponse();
+            }
+        });
+        $("#buttonInput").click(function() {
+            if (document.getElementById("textInput").value != "") {
+                getBotResponse();
+            }
+        })
+      </script>
+    </div>
+              
+      </form>
+  </body>
+</html>
