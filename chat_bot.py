@@ -7,6 +7,14 @@ from sklearn.model_selection import cross_val_score
 from sklearn.svm import SVC
 import csv
 import warnings
+import pyttsx3
+
+
+
+
+#main
+
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 from flask import Flask, render_template, request
 import random
@@ -18,11 +26,17 @@ training = pd.read_csv('Training.csv')
 testing= pd.read_csv('Testing.csv')
 cols= training.columns
 cols= cols[:-1]
+symptoms_exp=[]
 x = training[cols]
 y = training['prognosis']
 y1= y
 reduced_data = training.groupby(training['prognosis']).max()
+#creating a list to keep a track of all symptoms
+
+symptoms_present = []
+
 #mapping strings to numbers
+
 le = preprocessing.LabelEncoder()
 le.fit(y)
 y = le.transform(y)
@@ -42,13 +56,9 @@ features = cols
 def readn(nstr):
     engine = pyttsx3.init()
 
-    engine.setProperty('voice', "english+f5")
-    engine.setProperty('rate', 130)
 
-    engine.say(nstr)
-    engine.runAndWait()
-    engine.stop()
 
+    
 
 severityDictionary=dict()
 description_list = dict()
@@ -63,10 +73,17 @@ def calc_condition(exp,days):
     sum=0
     for item in exp:
          sum=sum+severityDictionary[item]
+
+# it crosses a particular severity mark then cunsulatation from a doctor.
+
     if((sum*days)/(len(exp)+1)>13):
         return "You should take the consultation from doctor. "
     else:
         return "It might not be that bad but you should take precautions."
+
+# taking description of a disease and storing it in description_list which is a dict
+
+
 def getDescription():
     global description_list
     with open('symptom_Description.csv') as csv_file:
@@ -75,6 +92,9 @@ def getDescription():
         for row in csv_reader:
             _description={row[0]:row[1]}
             description_list.update(_description)
+
+#reading the severity of a symptom from symptom_severity.csv and storing it in severity dict
+
 def getSeverityDict():
     global severityDictionary
     with open('symptom_severity.csv') as csv_file:
@@ -86,6 +106,9 @@ def getSeverityDict():
                 severityDictionary.update(_diction)
         except:
             pass
+
+#reading preaution and storing it in precaution dict
+
 def getprecautionDict():
     global precautionDictionary
     with open('symptom_precaution.csv') as csv_file:
@@ -94,22 +117,29 @@ def getprecautionDict():
         for row in csv_reader:
             _prec={row[0]:[row[1],row[2],row[3],row[4]]}
             precautionDictionary.update(_prec)
+
+
 def check_pattern(dis_list,inp):
     import re
     pred_list=[]
     ptr=0
+
+#to represent start and end of string
+
     patt = "^" + inp + "$"
     regexp = re.compile(inp)
     for item in dis_list:
 
-        # print(f"comparing {inp} to {item}")
+        
         if regexp.search(item):
             pred_list.append(item)
-            # return 1,item
+            
     if(len(pred_list)>0):
         return 1,pred_list
     else:
         return ptr,item
+#testing 30% then fits data . symptoms are assigned nos. input vector of zeros is made. it checks in dict if disease is present 1 is assigned
+
 def sec_predict(symptoms_exp):
     df = pd.read_csv('Training.csv')
     X = df.iloc[:, :-1]
@@ -124,6 +154,8 @@ def sec_predict(symptoms_exp):
     for item in symptoms_exp:
       input_vector[[symptoms_dict[item]]] = 1
     return rf_clf.predict([input_vector])
+
+
 def print_disease(node):
     node = node[0]
     val  = node.nonzero() 
@@ -132,12 +164,18 @@ def print_disease(node):
 @app.route("/")
 def home():
     return render_template("index.html")
-@app.route("/get")
+@app.route("/index")
 def get_bot_response():
+    engine = pyttsx3.init()
 
-    userText = request.args.get('msg')
+    
+
+    
+    userText = request.args.get('msg').strip()
     if "please enter the symptom you are facing" not in l:
         l.append("please enter the symptom you are facing")
+        engine.say("Hello "+userText+" please enter the symptom you are facing")
+        engine.runAndWait()
         return "Hello "+userText+" please enter the symptom you are facing"
     tree=globals()['clf']
     feature_names=globals()['cols']
@@ -159,34 +197,55 @@ def get_bot_response():
         conf,cnf_dis=check_pattern(chk_dis,disease_input)
         
         shrad=""
-        if conf==1:
-            for num,it in enumerate(cnf_dis):
-                shrad+="<br>"+str(num)+")"+it+" "
-            if num!=0:
-                if "select the one that you meant" not in l:
-                    l.append("select the one that you meant")
-                    return "select the one that you meant "+shrad
-                if "conf_inp" not in ip.keys():
-                    conf_inp = request.args.get('msg').strip()
-                    ip["conf_inp"]=conf_inp
-                conf_inp=ip["conf_inp"]
+        try:
+            if conf==1:
+                for num,it in enumerate(cnf_dis):
+                    shrad+="<br>"+str(num)+")"+it.replace("_"," ")+" "
+                if num!=0:
+                    if "select the one that you meant" not in l:
+                        l.append("select the one that you meant")
+                        engine.say("select the one that you meant "+shrad)
+                        engine.runAndWait()
+
+                        return "select the one that you meant "+shrad
+
+                    try:
+                        if "conf_inp" not in ip.keys():
+                            conf_inp = request.args.get('msg').strip()
+                            ip["conf_inp"]=conf_inp
+                        conf_inp=ip["conf_inp"]
+                    except:
+                        return "wrong input"
+                else:
+                    conf_inp=0
+                disease_input=cnf_dis[int(conf_inp)]
+                break
             else:
-                conf_inp=0
-            disease_input=cnf_dis[int(conf_inp)]
-            break
-        else:
-            return "Enter valid symptom "
+                return "Enter valid symptom "
+        except:
+            return "sorry wrong input"
+
+
     while True:
         try:
             if "okay. from how many days?" not in l:
                 l.append("okay. from how many days?")
-                return "okay. from how many days?"
+                engine.say("okay. from how many days are you experiencing this?")
+                engine.runAndWait()
+
+                return "okay. from how many days are you experiencing this?"
             break
         except:
-            print("again")
-    if "num_days" not in ip.keys():
-        num_days=int(request.args.get('msg').strip())
-        ip["num_days"]=num_days
+            return "wrong ip again"
+    try:
+        if "num_days" not in ip.keys():
+            num_days=int(request.args.get('msg').strip())
+            ip["num_days"]=num_days
+    except :
+        engine.say("please enter correct input")
+        engine.runAndWait()
+        return "please enter correct input"
+
     num_days=ip["num_days"]
     
     recurse(0, 1,tree_,feature_name,disease_input)
@@ -199,23 +258,37 @@ def get_bot_response():
         inp=""
         if syms not in ip.keys():
             ip[syms]="done"
-            return "Are you experiencing any "+syms+" ? : "+"<br>provide proper answers i.e. (yes/no) : "
-        else:
-            continue
-        inp=request.args.get('msg')
-        if(inp.lower()!="yes" or inp.lower()!="no"):
-            print("provide proper answers i.e. (yes/no) : ")
+            engine.say("Are you experiencing any "+syms.replace("_"," ")+" ? : "+" provide proper answers that is yes or no :")
+            engine.runAndWait()
+
+            return "Are you experiencing any "+syms.replace("_"," ")+" ? : "+"<br>provide proper answers i.e. (yes/no) : "
+        
+       
+        inp=request.args.get('msg').strip()
+        print(inp)
         if(inp.lower()=="yes"):
             symptoms_exp.append(syms)
+            print("yess")
+        elif(inp.lower()=="no"):
+            continue
+        else:
+            engine.say("please provide proper answers that is yes or no : ")
+            engine.runAndWait()
+
+            return "please provide proper answers i.e. (yes/no) : "
     second_prediction=sec_predict(symptoms_exp)
     calc_condition(symptoms_exp,num_days)
     precution_list=precautionDictionary[present_disease[0]]
+    shrad=""
     for  i,j in enumerate(precution_list):
         shrad+=str(i+1)+")"+j+"<br>"
     if(present_disease[0]==second_prediction[0]):
-        return "You may have "+ present_disease[0]+"<br>"+description_list[present_disease[0]]+"<br>Take following measures : <br>"+shrad
+        engine.say("Here are the results. you may have "+present_disease[0]+" the information regarding the disease is as present:")
+        engine.runAndWait()
+
+        return "You may have <h3>"+ present_disease[0]+"</h3><br>"+description_list[present_disease[0]]+"<br>Take following measures : <br>"+shrad
     else:
-        return "You may have "+ present_disease[0]+ "or "+ second_prediction[0]+"<br>"+description_list[present_disease[0]]+"<br>"+description_list[second_prediction[0]]+"<br>Take following measures : <br>"+shrad          
+        return "You may have <h3>"+ present_disease[0]+ "</h3><br>"+description_list[present_disease[0]]+"<br>"+"<br>Take following measures : <br>"+shrad          
 node=0
 def recurse(n, depth,tree_,feature_name,disease_input):
     globals()['node']=n
@@ -233,10 +306,40 @@ def recurse(n, depth,tree_,feature_name,disease_input):
         else:
             symptoms_present.append(name)
             recurse(tree_.children_right[globals()['node']], depth + 1,tree_,feature_name,disease_input)
-        
+@app.after_request
+def add_header(response):
+    response.cache_control.no_store=True
+    return response    
+@app.route('/map')
+def map_func():
+	return render_template('map.html',
+    			latitude=latitude,
+                            longitude=longitude,
+                            apikey=api_key,
+                            oneName=hospitalOne,
+                            OneAddress=hospitalOne_address,
+                            oneLatitude=hospitalOne_latitude,
+                            oneLongitude=hospitalOne_longitude,
+                            twoName=hospitalTwo,
+                            twoAddress=hospitalTwo_address,
+                            twoLatitude=hospitalTwo_latitude,
+                            twoLongitude=hospitalTwo_longitude,
+                            threeName=hospitalThree,
+                            threeAddress=hospitalThree_address,
+                            threeLatitude=hospitalThree_latitude,
+                            threeLongitude=hospitalThree_longitude,
+                            fourName=hospitalFour,		
+                            fourAddress=hospitalFour_address,
+                            fourLatitude=hospitalFour_latitude,
+                            fourLongitude=hospitalFour_longitude,
+                            fiveName=hospitalFive,		
+                            fiveAddress=hospitalFive_address,
+                            fiveLatitude=hospitalFive_latitude,
+                            fiveLongitude=hospitalFive_longitude)
 if __name__ == "__main__":
     getSeverityDict()
     getDescription()
     getprecautionDict()
     
-    app.run(host ='127.0.0.1', port = 5000,debug=True)
+    app.run(host='127.0.0.1',port=5000,debug=True,threaded=True)
+
