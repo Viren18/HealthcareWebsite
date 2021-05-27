@@ -1,0 +1,6 @@
+pandas
+numpy
+Flask==1.1.2
+scikit_learn==0.24.1
+Gunicorn
+whitenoise==3.2
